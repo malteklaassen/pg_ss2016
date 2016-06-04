@@ -16,7 +16,7 @@ import urllib.parse
 import copy
 import argparse
 
-proxied_server = "bonnbox.stw-bonn.de"
+proxied_server = "example.com"
 proxy_address = "localhost:8080"
 csp_value = "script-src 'self'"
 
