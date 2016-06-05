@@ -18,7 +18,8 @@ import argparse
 
 proxied_server = "example.com"
 proxy_address = "localhost:8080"
-csp_value = "script-src 'self'"
+csp_value = "default-src 'none'"
+csp_file_path = "csp-string"
 
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 	def handle_one_request(self):
@@ -61,6 +62,10 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 				self.send_header(hn, hv)
 
 			# Adding the CSP-Header
+			csp_file = open(csp_file_path)
+			csp_value = csp_file.readline()
+			print(csp_value)
+			csp_file.close()
 
 			self.send_header("Content-Security-Policy", csp_value)
 			self.end_headers()
