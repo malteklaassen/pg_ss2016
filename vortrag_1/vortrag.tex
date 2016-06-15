@@ -61,7 +61,7 @@
 \item "[...] defines a mechanism by which web developers can control the resources which a particular page can fetch or execute [...]" (CSP Level 3)
 \item Server sendet Policy in HTTP-Header Content-Security-Policy
 \item Report/Fetch Directives
-\item Alternativer Header-Name: Content-Security-Policy-Report-Only
+\item Alternativer Header: Content-Security-Policy-Report-Only
 \end{itemize}
 \end{frame}
 
@@ -138,10 +138,18 @@
 \end{frame}
 
 \section{Reportbasierte Policy Erzeugung}
+%\begin{frame}[c]
+%\frametitle{Reportbasierte Policy Erzeugung} % Ziel
+%\begin{itemize}
+%\item Ziel: Erstellung von Policies aus Reports, unabhängig vom verwendeten Webserver % Punkt 1: Rebortbasiert, Punkt 2: Systemunabhängig, Proxy
+%\end{itemize}
+%\end{frame}
+
 \begin{frame}[c]
-\frametitle{Reportbasierte Policy Erzeugung}
+\frametitle{Ziel}
 \begin{itemize}
-\item Ziel: Erstellung von Policies aus Reports, unabhängig vom verwendeten Webserver
+\item Automatische Erstellung von Policies auf Basis von Violation Reports
+\item Unabhängig \& transparent zum Webserver $\implies$ Reverse Proxy
 \end{itemize}
 \end{frame}
 
@@ -153,7 +161,7 @@
 \item Neue Ressourcen müssen erst freigeschaltet werden, sind zuerst nicht verfügbar
 \item Bei Einbindung durch fremde Skripte: Betreiber kennt nicht alle validen Ressourcen\\
 Kann durch Zurückführung auf ursprüngliche Skripte vereinfacht werden
-\item Auwändig/nicht automatisiert
+\item Aufwändig/nicht automatisiert
 \end{itemize}
 \end{itemize}
 \end{frame}
@@ -167,6 +175,17 @@ Kann durch Zurückführung auf ursprüngliche Skripte vereinfacht werden
 \item Bewertung einer Violation/Ressource nichttrivial nur anhand der Häufigkeit möglich \\$\implies$ manipulierbar durch Angreifer
 \end{itemize}
 \end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Policy Erzeugung - Sichere Quellen, Produktionsdaten}
+\begin{itemize}
+\item Vollautomatische Generierung der Policy aus Violation Reports aus sicheren Quellen auf Produktionsdatensätzen
+\end{itemize}
+\begin{figure}[ht]
+	\centering
+	\includegraphics[width=8cm]{schema_3.png}
+\end{figure}
 \end{frame}
 
 \begin{frame}[c]
@@ -231,7 +250,9 @@ Kann durch Zurückführung auf ursprüngliche Skripte vereinfacht werden
 
 \begin{thebibliography}{}
 \bibitem[1]{1}
-TODO
+Content Security Policy Level 2; W3C Candidate Recommendation \url{https://www.w3.org/TR/CSP2/} (Abgerufen 2016-06-15)
+\bibitem[2]{2}
+Content Security Policy Level 3; W3C Working Draft \url{https://www.w3.org/TR/CSP3/} (Abgerufen 2016-06-15)
 \end{thebibliography}
 
 
