@@ -1,0 +1,1 @@
+media-src 'self'; style-src 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://maps.googleapis.com; img-src https://csi.gstatic.com https://maps.googleapis.com https://maps.gstatic.com https://pbs.twimg.com https://khms1.googleapis.com https://khms0.googleapis.com https://cbks0.googleapis.com https://cbks1.googleapis.com; font-src https://fonts.gstatic.com

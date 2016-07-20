@@ -37,17 +37,11 @@ Due to the field "effective-directive" the usage of Chrome should be easier - ev
 	,"status-code":200}}
 -}
 
--- Todo: These values should be read from a config file or something like that
--- self describes the Scheme/Authority under which the client finds the server and will be translated to 'self' in the generation
--- self = "http://localhost"
--- path is the input-file for the generator. It should contain one JSON-CSP-Report per line
--- path = "out.txt" -- Maybe read from stdin + pipe instead?
-
 -- Reads in the file, processes the reports and prints out the policy suggestion
 main :: IO ()
 main =
   do
-    conf <- readConf "gen.conf"
+    conf <- readConf "gen.conf" -- reads conf
     handle <- openFile (path conf) ReadMode
     lines <- hGetLines handle -- Input
     hClose handle
@@ -59,9 +53,7 @@ main =
 --CONFIG SECTION--
 -------------------------------------------------------------------------
 
-data Conf = Conf { self :: String, path :: String }
-cfields :: [String]
-cfields = ["self", "path"]
+data Conf = Conf { self :: String, path :: String, inline :: [String]}
 
 readConf :: String -> IO Conf
 readConf cpath =
@@ -82,9 +74,22 @@ parseConf line =
         otherwise -> fail "Couldn't parse to JSON Object"
     jvpath <- lookup "path" . fromJSObject $ obj
     jvself <- lookup "self" . fromJSObject $ obj
-    case (jvpath, jvself) of
-      (JSString vpath, JSString vself) -> return (Conf {self = fromJSString vself, path = fromJSString vpath})
-      otherwise -> Nothing
+    javinline <- lookup "inline" . fromJSObject $ obj
+    vpath <- case jvpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> Nothing }
+    vself <- case jvself of {JSString vself -> return . fromJSString $ vself; otherwise -> Nothing }
+    avinline <- case javinline of {JSArray avinline -> return avinline; otherwise -> Nothing }
+    vinline <-
+      mapM
+        ( 
+          \jvinline
+            ->
+              case jvinline of
+                JSString vinline -> return . fromJSString $ vinline
+                otherwise -> Nothing
+        )
+      avinline
+    return Conf {self = vself, path = vpath, inline = vinline}
+        
       
 
 -------------------------------------------------------------------------
@@ -96,8 +101,35 @@ linesToPolicy conf lines =
   do -- Maybe-Monad for easier processing
     reduced <- reduce lines -- reduction on important Fields
     let grouped = groupFirst . map (\(x,y) -> (y,x)) $ reduced -- grouping on directive-value
-    let selfed = map (\(key, values) -> (key, nub . map (\value -> if isPrefixOf (self conf) value then "'self'" else if value == "inline" then "'unsafe-inline'" else value ) $ values )) $ grouped -- duplicate removal, adding of self, unsafe-inline. Possible todo: List of allowed/forbidden inlines
-    return . concat . intersperse "; " . map (\(key, values) -> key ++ " " ++ (concat . intersperse " " $ values))$ selfed
+    let selfed = map (\(key, values) -> (key, map (\value -> if isPrefixOf (self conf) value then "'self'" else value ) $ values )) $ grouped -- duplicate removal, adding of self, unsafe-inline. Possible todo: List of allowed/forbidden inlines
+    inlined 
+      <- 
+        mapM 
+          (
+            \(key, values) 
+              -> 
+                do
+                  ivalues 
+                    <- 
+                      mapM
+                        (
+                          \value
+                            ->
+                              if value == "inline"
+                                then
+                                  if elem key (inline conf)
+                                    then
+                                      return "'unsafe-inline'"
+                                    else
+                                      fail "illegal inline"
+                                else
+                                  return value
+                        )
+                        values
+                  return (key, ivalues)
+          ) 
+          selfed
+    return . concat . intersperse "; " . map (\(key, values) -> key ++ " " ++ (concat . intersperse " " $ values)) . map (\(key, values) -> (key, nub values)) $ inlined 
        
 
 -- Get lines from one Handle until EOF
