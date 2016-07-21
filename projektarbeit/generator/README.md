@@ -10,7 +10,13 @@ The generator is written in Haskell, so you need `ghc` or another Haskellcompile
  1. Data.JSON
  2. Text.URI
 
-These can be installed via `cabal`.
+These can be installed via `cabal-install`:
+
+ 1. `$ cabal update`
+ 2. `$ cabal install JSON`
+ 3. `$ cabal install URI`
+
+In some cases a global installation (`-g` flag) might be necessary.
 
 ## Input
 Input should be a file of CSP-Reports in normal JSON format, separated by a newline, so exactly one report per line. We chose this format over a proper JSON list as it makes continous collection easier.
