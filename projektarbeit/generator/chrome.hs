@@ -12,7 +12,7 @@ import Text.URI
 
 {-
 Two example reports as sent by Google Chrome with Policy "script-src 'none'; media-src 'none'; img-src 'none'; report-uri /read.php".
-Due to the field "effective-directive" the usage of Chrome should be easier - even though Chrome seems to not always report the correct original-directive.
+Due to the field "effective-directive" the usage of Chrome should be easier - even though Chrome seems to not always report the correct original-directive but a simplified equivalent one. Unluckily this makes it incompatible with Firefox, as Firefox reports the violated directive from the actual original policy. 
 {"csp-report":
 	{"document-uri":"http://localhost/ssl.html"
 	,"referrer":""
@@ -59,7 +59,8 @@ readConf :: String -> IO Conf
 readConf cpath =
   do
     chandle <- openFile cpath ReadMode
-    line <- hGetLine chandle
+    lines <- hGetLines chandle
+    let line = concat lines
     hClose chandle
     case parseConf line of
       Just conf -> return conf

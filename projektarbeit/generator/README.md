@@ -23,9 +23,9 @@ Input should be a file of CSP-Reports in normal JSON format, separated by a newl
 `sampleReports.csp` is the policy generated from these reports.
 
 ## Configuration
-A `gen.conf` file is used for configuration. It should contain a JSON-Object with all necessary fields. When reading the configuration ONLY the first line of the document is acutally read, the rest of the file can be used for comments.
+A `gen.conf` file is used for configuration. It should contain a JSON-Object with all necessary fields. So there is no dedicated commentary option for this file, a work around would be using unused fields for comments.
 
-This is a terrible solution, we will change this in the future, I promise ;) .
+This is a not a solution I'm really happy with, we will look into changing that in the future.
 
 Fields:
  1. `path` is the path to the input file
