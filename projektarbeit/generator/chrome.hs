@@ -5,9 +5,11 @@ import Text.JSON.String
 import Text.JSON.Generic
 import System.IO
 import qualified Data.Map.Strict as Map
-import Data.List
+import Data.List hiding (lookup)
 -- in some versions: Network.URI
 import Text.URI
+import Prelude hiding (lookup)
+import qualified Prelude (lookup)
 
 
 {-
@@ -41,13 +43,18 @@ Due to the field "effective-directive" the usage of Chrome should be easier - ev
 main :: IO ()
 main =
   do
-    conf <- readConf "gen.conf" -- reads conf
+    mconf <- readConf "gen.conf" -- reads conf
+    conf 
+      <-
+        case mconf of
+          Right conf -> return conf
+          Left msg -> error ("Could not parse config file: " ++ msg)
     handle <- openFile (path conf) ReadMode
     lines <- hGetLines handle -- Input
     hClose handle
     case linesToPolicy conf lines of --Processing
-      Just policy -> putStrLn policy --Output
-      Nothing -> error "Couldn't create policy"
+      Right policy -> putStrLn policy --Output
+      Left msg -> error ("Could not create policy: " ++ msg)
 
 -------------------------------------------------------------------------
 --CONFIG SECTION--
@@ -55,18 +62,22 @@ main =
 
 data Conf = Conf { self :: String, path :: String, inline :: [String], eval :: [String]}
 
-readConf :: String -> IO Conf
+readConf :: String -> IO (Either String Conf)
 readConf cpath =
   do
     chandle <- openFile cpath ReadMode
     lines <- hGetLines chandle
     let line = concat lines
     hClose chandle
-    case parseConf line of
-      Just conf -> return conf
-      Nothing -> error "Couldn't parse config file"
+    return (parseConf line)
 
-parseConf :: String -> Maybe Conf
+lookup :: (Eq a, Show a) => a -> [(a, b)] -> Either String b
+lookup v xs = 
+  case Prelude.lookup v xs of
+    Just x -> Right x
+    Nothing -> Left ("Key " ++ show v ++ " not found.")
+
+parseConf :: String -> Either String Conf
 parseConf line = 
   do
     obj <- 
@@ -77,10 +88,10 @@ parseConf line =
     jvself <- lookup "self" . fromJSObject $ obj
     javinline <- lookup "inline" . fromJSObject $ obj
     javeval <- lookup "eval" . fromJSObject $ obj
-    vpath <- case jvpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> Nothing }
-    vself <- case jvself of {JSString vself -> return . fromJSString $ vself; otherwise -> Nothing }
-    avinline <- case javinline of {JSArray avinline -> return avinline; otherwise -> Nothing }
-    aveval <- case javeval of {JSArray aveval -> return aveval; otherwise -> Nothing }
+    vpath <- case jvpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> fail "path config field has wrong type" }
+    vself <- case jvself of {JSString vself -> return . fromJSString $ vself; otherwise -> fail "self config field has wrong type" }
+    avinline <- case javinline of {JSArray avinline -> return avinline; otherwise -> fail "inline config field has wrong type" }
+    aveval <- case javeval of {JSArray aveval -> return aveval; otherwise -> fail "eval config field has wrong type" }
     vinline <-
       mapM
         ( 
@@ -88,7 +99,7 @@ parseConf line =
             ->
               case jvinline of
                 JSString vinline -> return . fromJSString $ vinline
-                otherwise -> Nothing
+                otherwise -> fail "inline config field has wrong type"
         )
       avinline
     veval <-
@@ -98,7 +109,7 @@ parseConf line =
             ->
               case jveval of
                 JSString veval -> return . fromJSString $ veval
-                otherwise -> Nothing
+                otherwise -> fail "eval config field has wrong type"
         )
       aveval
     return Conf {self = vself, path = vpath, inline = vinline, eval = veval}
@@ -109,13 +120,13 @@ parseConf line =
 --ACTUAL STUFF SECTION--
 -------------------------------------------------------------------------
 
-linesToPolicy :: Conf -> [String] -> Maybe String
+linesToPolicy :: Conf -> [String] -> Either String String
 linesToPolicy conf lines =
-  do -- Maybe-Monad for easier processing
+  do -- Either String-Monad for easier processing and logging
     reduced <- reduce lines -- reduction on important Fields
     let grouped = groupFirst . map (\(x,y) -> (y,x)) $ reduced -- grouping on directive-value
-    let selfed = map (\(key, values) -> (key, map (\value -> if isPrefixOf (self conf) value then "'self'" else value ) $ values )) $ grouped -- duplicate removal, adding of self, unsafe-inline. Possible todo: List of allowed/forbidden inlines
-    keyworded
+    let selfed = map (\(key, values) -> (key, map (\value -> if isPrefixOf (self conf) value then "'self'" else value ) $ values )) $ grouped -- inserting 'self' where needed
+    keyworded -- replacing eval and inline with keywords where allowed
       <- 
         mapM 
           (
@@ -170,7 +181,7 @@ hGetLines handle =
 
 -- JSON reduction
 -- All wrapped in Maybe-Monads for easier error-handling
-reduce :: [String] -> Maybe [(String, String)]
+reduce :: [String] -> Either String [(String, String)]
 reduce = 
   mapM 
     ( 
@@ -182,7 +193,7 @@ reduce =
     )
 
 -- We have an outer and an inner JSON-Object. The outer one is of no relevance for us but still has to be stripped
-lineToInnerObject :: String -> Maybe (JSObject JSValue)
+lineToInnerObject :: String -> Either String (JSObject JSValue)
 lineToInnerObject line =
   do
     outerObject <-
@@ -198,14 +209,14 @@ lineToInnerObject line =
 type RelevantData = (String, String) -- I just always wanted to name a Data Type "RelevantData", holds the directive and value extracted from JSON
 
 -- Maybe RelevantData is just a nice thing to have in code
-reduceObjectToImportantFields :: JSObject JSValue -> Maybe RelevantData
+reduceObjectToImportantFields :: JSObject JSValue -> Either String RelevantData
 reduceObjectToImportantFields obj =
   do
     uri <- lookup "blocked-uri" . fromJSObject $ obj
     directive <- lookup "effective-directive" . fromJSObject $ obj
     case (uri, directive) of
       (JSString uri_, JSString directive_) -> return (fromJSString uri_, fromJSString directive_)
-      otherwise -> fail "Not a String"
+      otherwise -> fail "uri or directive could not be parsed to a string"
      
 -- Grouping on first argument, based on a map. I'm really not happy with this solution but it does it's job.
 groupFirst :: Ord a => [(a, String)] -> [(a, [String])]
