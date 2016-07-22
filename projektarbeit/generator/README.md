@@ -37,5 +37,6 @@ Fields:
  1. `path` is the path to the input file
  2. `self` is the address under which the client originally reached the server and it will be translated to `'self'` in the actual policy.
  3. `inline` is an array of sources that should allow `unsafe-inline`
+ 4. `eval` is an array of sources that should allow `unsafe-eval`
 
-Theoretically `self` should be deducable from the reports, though we are not certain about the stability of this. If an illegal inline occurs, the generation will fail.
+Theoretically `self` should be deducable from the reports, though we are not certain about the stability of this. If an illegal occurence of a keyword (inline, eval) occurs, the generation will fail.

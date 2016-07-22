@@ -53,7 +53,7 @@ main =
 --CONFIG SECTION--
 -------------------------------------------------------------------------
 
-data Conf = Conf { self :: String, path :: String, inline :: [String]}
+data Conf = Conf { self :: String, path :: String, inline :: [String], eval :: [String]}
 
 readConf :: String -> IO Conf
 readConf cpath =
@@ -76,9 +76,11 @@ parseConf line =
     jvpath <- lookup "path" . fromJSObject $ obj
     jvself <- lookup "self" . fromJSObject $ obj
     javinline <- lookup "inline" . fromJSObject $ obj
+    javeval <- lookup "eval" . fromJSObject $ obj
     vpath <- case jvpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> Nothing }
     vself <- case jvself of {JSString vself -> return . fromJSString $ vself; otherwise -> Nothing }
     avinline <- case javinline of {JSArray avinline -> return avinline; otherwise -> Nothing }
+    aveval <- case javeval of {JSArray aveval -> return aveval; otherwise -> Nothing }
     vinline <-
       mapM
         ( 
@@ -89,7 +91,17 @@ parseConf line =
                 otherwise -> Nothing
         )
       avinline
-    return Conf {self = vself, path = vpath, inline = vinline}
+    veval <-
+      mapM
+        ( 
+          \jveval
+            ->
+              case jveval of
+                JSString veval -> return . fromJSString $ veval
+                otherwise -> Nothing
+        )
+      aveval
+    return Conf {self = vself, path = vpath, inline = vinline, eval = veval}
         
       
 
@@ -103,7 +115,7 @@ linesToPolicy conf lines =
     reduced <- reduce lines -- reduction on important Fields
     let grouped = groupFirst . map (\(x,y) -> (y,x)) $ reduced -- grouping on directive-value
     let selfed = map (\(key, values) -> (key, map (\value -> if isPrefixOf (self conf) value then "'self'" else value ) $ values )) $ grouped -- duplicate removal, adding of self, unsafe-inline. Possible todo: List of allowed/forbidden inlines
-    inlined 
+    keyworded
       <- 
         mapM 
           (
@@ -116,21 +128,30 @@ linesToPolicy conf lines =
                         (
                           \value
                             ->
-                              if value == "inline"
-                                then
-                                  if elem key (inline conf)
-                                    then
-                                      return "'unsafe-inline'"
-                                    else
-                                      fail "illegal inline"
-                                else
-                                  return value
+                              case value of
+                                "inline"
+                                  ->
+                                    if elem key (inline conf)
+                                      then
+                                        return "'unsafe-inline'"
+                                      else
+                                        fail "illegal inline"
+                                "eval"
+                                  ->
+                                    if elem key (eval conf)
+                                      then
+                                        return "'unsafe-eval'"
+                                      else
+                                        fail "illegal eval"
+                                otherwise
+                                  ->
+                                    return value
                         )
                         values
                   return (key, ivalues)
           ) 
           selfed
-    return . concat . intersperse "; " . map (\(key, values) -> key ++ " " ++ (concat . intersperse " " $ values)) . map (\(key, values) -> (key, nub values)) $ inlined 
+    return . concat . intersperse "; " . map (\(key, values) -> key ++ " " ++ (concat . intersperse " " $ values)) . map (\(key, values) -> (key, nub values)) $ keyworded
        
 
 -- Get lines from one Handle until EOF
