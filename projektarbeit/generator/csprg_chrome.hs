@@ -48,19 +48,29 @@ main =
       <-
         case mconf of
           Right conf -> return conf
-          Left msg -> error ("Could not parse config file: " ++ msg)
-    handle <- openFile (path conf) ReadMode
+          Left msg -> error $ "Error in parsing config: " ++ msg
+    handle <- openFile (inpath conf) ReadMode
     lines <- hGetLines handle -- Input
     hClose handle
     case linesToPolicy conf lines of --Processing
-      Right policy -> putStrLn policy --Output
-      Left msg -> error ("Could not create policy: " ++ msg)
+      Right policy 
+        -> 
+          do
+            handle <- openFile (outpath conf) WriteMode
+            hPutStr handle policy
+            hClose handle
+            putStrLn $ "Policy generation successful. The generated policy is:"
+            putStrLn $ policy
+      Left msg 
+        -> 
+          do
+            error $ "Error in generating policy: " ++ msg
 
 -------------------------------------------------------------------------
 --CONFIG SECTION--
 -------------------------------------------------------------------------
 
-data Conf = Conf { self :: String, path :: String, inline :: [String], eval :: [String]}
+data Conf = Conf { self :: String, inpath :: String, outpath :: String, inline :: [String], eval :: [String]}
 
 readConf :: String -> IO (Either String Conf)
 readConf cpath =
@@ -84,11 +94,13 @@ parseConf line =
       case runGetJSON readJSObject line of
         Right (JSObject obj) -> return obj
         otherwise -> fail "Couldn't parse to JSON Object"
-    jvpath <- lookup "path" . fromJSObject $ obj
+    jvinpath <- lookup "inpath" . fromJSObject $ obj
+    jvoutpath <- lookup "outpath" . fromJSObject $ obj
     jvself <- lookup "self" . fromJSObject $ obj
     javinline <- lookup "inline" . fromJSObject $ obj
     javeval <- lookup "eval" . fromJSObject $ obj
-    vpath <- case jvpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> fail "path config field has wrong type" }
+    vinpath <- case jvinpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> fail "input path config field has wrong type" }
+    voutpath <- case jvoutpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> fail "output path config field has wrong type" }
     vself <- case jvself of {JSString vself -> return . fromJSString $ vself; otherwise -> fail "self config field has wrong type" }
     avinline <- case javinline of {JSArray avinline -> return avinline; otherwise -> fail "inline config field has wrong type" }
     aveval <- case javeval of {JSArray aveval -> return aveval; otherwise -> fail "eval config field has wrong type" }
@@ -112,7 +124,7 @@ parseConf line =
                 otherwise -> fail "eval config field has wrong type"
         )
       aveval
-    return Conf {self = vself, path = vpath, inline = vinline, eval = veval}
+    return Conf {self = vself, inpath = vinpath, outpath = voutpath, inline = vinline, eval = veval}
         
       
 

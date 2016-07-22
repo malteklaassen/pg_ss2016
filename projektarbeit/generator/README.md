@@ -34,7 +34,8 @@ A `gen.conf` file is used for configuration. It should contain a JSON-Object wit
 This is a not a solution I'm really happy with, we will look into changing that in the future.
 
 Fields:
- 1. `path` is the path to the input file
+ 1. `inpath` is the path to the input file
+ 1. `outpath` is the path of the file where the new policy should be written
  2. `self` is the address under which the client originally reached the server and it will be translated to `'self'` in the actual policy.
  3. `inline` is an array of sources that should allow `unsafe-inline`
  4. `eval` is an array of sources that should allow `unsafe-eval`

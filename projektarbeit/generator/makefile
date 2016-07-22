@@ -1,2 +1,6 @@
-chrome: chrome.hs
-	ghc chrome.hs
+bins = csprg_chrome
+
+all: $(bins)
+
+$(bins): %: %.hs
+	ghc $<
