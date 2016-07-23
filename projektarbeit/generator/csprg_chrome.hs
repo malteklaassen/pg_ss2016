@@ -48,7 +48,8 @@ main =
       <-
         case mconf of
           Right conf -> return conf
-          Left msg -> error $ "Error in parsing config: " ++ msg
+          Left msg -> 
+              errorWithoutStackTrace $ "Error in parsing config: " ++ msg
     handle <- openFile (inpath conf) ReadMode
     lines <- hGetLines handle -- Input
     hClose handle
@@ -64,7 +65,7 @@ main =
       Left msg 
         -> 
           do
-            error $ "Error in generating policy: " ++ msg
+            errorWithoutStackTrace $ "Error in generating policy: " ++ msg
 
 -------------------------------------------------------------------------
 --CONFIG SECTION--
@@ -93,17 +94,17 @@ parseConf line =
     obj <- 
       case runGetJSON readJSObject line of
         Right (JSObject obj) -> return obj
-        otherwise -> fail "Couldn't parse to JSON Object"
+        otherwise -> Left "Couldn't parse to JSON Object"
     jvinpath <- lookup "inpath" . fromJSObject $ obj
     jvoutpath <- lookup "outpath" . fromJSObject $ obj
     jvself <- lookup "self" . fromJSObject $ obj
     javinline <- lookup "inline" . fromJSObject $ obj
     javeval <- lookup "eval" . fromJSObject $ obj
-    vinpath <- case jvinpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> fail "input path config field has wrong type" }
-    voutpath <- case jvoutpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> fail "output path config field has wrong type" }
-    vself <- case jvself of {JSString vself -> return . fromJSString $ vself; otherwise -> fail "self config field has wrong type" }
-    avinline <- case javinline of {JSArray avinline -> return avinline; otherwise -> fail "inline config field has wrong type" }
-    aveval <- case javeval of {JSArray aveval -> return aveval; otherwise -> fail "eval config field has wrong type" }
+    vinpath <- case jvinpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> Left "input path config field has wrong type" }
+    voutpath <- case jvoutpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> Left "output path config field has wrong type" }
+    vself <- case jvself of {JSString vself -> return . fromJSString $ vself; otherwise -> Left "self config field has wrong type" }
+    avinline <- case javinline of {JSArray avinline -> return avinline; otherwise -> Left "inline config field has wrong type" }
+    aveval <- case javeval of {JSArray aveval -> return aveval; otherwise -> Left "eval config field has wrong type" }
     vinline <-
       mapM
         ( 
@@ -111,7 +112,7 @@ parseConf line =
             ->
               case jvinline of
                 JSString vinline -> return . fromJSString $ vinline
-                otherwise -> fail "inline config field has wrong type"
+                otherwise -> Left "inline config field has wrong type"
         )
       avinline
     veval <-
@@ -121,7 +122,7 @@ parseConf line =
             ->
               case jveval of
                 JSString veval -> return . fromJSString $ veval
-                otherwise -> fail "eval config field has wrong type"
+                otherwise -> Left "eval config field has wrong type"
         )
       aveval
     return Conf {self = vself, inpath = vinpath, outpath = voutpath, inline = vinline, eval = veval}
@@ -158,14 +159,14 @@ linesToPolicy conf lines =
                                       then
                                         return "'unsafe-inline'"
                                       else
-                                        fail "illegal inline"
+                                        Left $ "illegal inline at key " ++ key ++ ". No correct policy can be generated."
                                 "eval"
                                   ->
                                     if elem key (eval conf)
                                       then
                                         return "'unsafe-eval'"
                                       else
-                                        fail "illegal eval"
+                                        Left $ "illegal eval at key " ++ key ++ ". No correct policy can be generated."
                                 otherwise
                                   ->
                                     return value
@@ -211,11 +212,11 @@ lineToInnerObject line =
     outerObject <-
       case runGetJSON readJSObject line of
         Right (JSObject outerObject) -> return outerObject
-        otherwise -> fail "Could not parse outer Object"
+        otherwise -> Left "Could not parse outer Object"
     innerObject <- 
       case (map snd) . filter (\(s, _) -> s == "csp-report") . fromJSObject $ outerObject of
         [JSObject innerObject] -> return $ innerObject -- There may be EXACTALY ONE OBJECT
-        otherwise -> fail "Could not parse inner Object"
+        otherwise -> Left "Could not parse inner Object"
     return innerObject -- semantically not necessary, but nicer formatting
 
 type RelevantData = (String, String) -- I just always wanted to name a Data Type "RelevantData", holds the directive and value extracted from JSON
@@ -228,7 +229,7 @@ reduceObjectToImportantFields obj =
     directive <- lookup "effective-directive" . fromJSObject $ obj
     case (uri, directive) of
       (JSString uri_, JSString directive_) -> return (fromJSString uri_, fromJSString directive_)
-      otherwise -> fail "uri or directive could not be parsed to a string"
+      otherwise -> Left "uri or directive could not be parsed to a string"
      
 -- Grouping on first argument, based on a map. I'm really not happy with this solution but it does it's job.
 groupFirst :: Ord a => [(a, String)] -> [(a, [String])]
