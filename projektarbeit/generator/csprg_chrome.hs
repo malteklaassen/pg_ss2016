@@ -39,11 +39,13 @@ Due to the field "effective-directive" the usage of Chrome should be easier - ev
 	,"status-code":200}}
 -}
 
+confPath = "/etc/csprg/gen.conf"
+
 -- Reads in the file, processes the reports and prints out the policy suggestion
 main :: IO ()
 main =
   do
-    mconf <- readConf "gen.conf" -- reads conf
+    mconf <- readConf confPath -- reads conf
     conf 
       <-
         case mconf of
