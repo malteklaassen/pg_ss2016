@@ -10,7 +10,7 @@ prep_install:
 	mkdir -p /usr/share/csprg
 	mkdir -p /etc/csprg
 	# Creating systemuser csprg if he doesnt already exists
-	id -u csprg &> /dev/null || useradd -r -s /usr/bin/nologin csprg
+	./install_util/csprg_user.sh
 	# Setting permissions on created directories
 	chown csprg:csprg /usr/share/csprg
 	chmod g+w /usr/share/csprg # so that a user can write there himself if he has the right permissions
