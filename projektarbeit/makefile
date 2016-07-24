@@ -1,4 +1,3 @@
-
 build: generator_build
 
 generator_build: generator/csprg_chrome.hs
@@ -7,7 +6,10 @@ generator_build: generator/csprg_chrome.hs
 install: proxy_install generator_install collector_install
 
 proxy_install: proxy/nginx.conf proxy/fastcgi.conf proxy/fastcgi_params
-	mkdir /usr/share/csprg
+	mkdir -p /usr/share/csprg
+	chgrp http /usr/share/csprg
+	chmod g+w /usr/share/csprg
+	mkdir -p /etc/csprg/
 	cp proxy/nginx.conf /etc/nginx/nginx.conf
 	cp proxy/fastcgi.conf /etc/nginx/fastcgi.conf
 	cp proxy/fastcgi_params /etc/nginx/fastcgi_params
@@ -18,5 +20,5 @@ collector_install: collector/php-fcgi collector/csprg_collector.php collector/cs
 	# todo: install php-fcgi
         
 generator_install: generator/gen.conf generator/csprg_chrome
-	cp generator/gen.conf /usr/share/csprg/gen.conf
-	cp genertor/csprg_chrome /usr/bin/csprg_chrome
+	cp generator/gen.conf /etc/csprg/gen.conf
+	cp generator/csprg_chrome /usr/bin/csprg_chrome
