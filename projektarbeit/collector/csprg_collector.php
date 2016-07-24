@@ -6,3 +6,4 @@ if ($json === false) {
 }
 
 $myfile = file_put_contents('csprg_collector.txt', $json.PHP_EOL , FILE_APPEND);
+?>
