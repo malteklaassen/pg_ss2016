@@ -51,7 +51,7 @@ main =
         case mconf of
           Right conf -> return conf
           Left msg -> 
-              errorWithoutStackTrace $ "Error in parsing config: " ++ msg
+              error $ "Error in parsing config: " ++ msg
     handle <- openFile (inpath conf) ReadMode
     lines <- hGetLines handle -- Input
     hClose handle
@@ -67,7 +67,7 @@ main =
       Left msg 
         -> 
           do
-            errorWithoutStackTrace $ "Error in generating policy: " ++ msg
+            error $ "Error in generating policy: " ++ msg
 
 -------------------------------------------------------------------------
 --CONFIG SECTION--
