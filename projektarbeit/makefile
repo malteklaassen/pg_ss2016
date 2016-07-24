@@ -3,12 +3,16 @@ build: generator_build
 generator_build: generator/csprg_chrome.hs
 	$(MAKE) -C generator
 
-install: proxy_install generator_install collector_install
+install: prep_install proxy_install generator_install collector_install
+
+prep_install:
+	mkdir -p /usr/share/csprg
+	mkdir -p /etc/csprg
+	useradd -r -s /usr/bin/nologin csprg
+	chown csprg:csprg /usr/share/csprg
+	chmod g+w /usr/share/csprg
 
 proxy_install: proxy/nginx.conf proxy/fastcgi.conf proxy/fastcgi_params
-	mkdir -p /usr/share/csprg
-	# todo: Fix permission problems
-	mkdir -p /etc/csprg/
 	cp proxy/nginx.conf /etc/nginx/nginx.conf
 	cp proxy/fastcgi.conf /etc/nginx/fastcgi.conf
 	cp proxy/fastcgi_params /etc/nginx/fastcgi_params
