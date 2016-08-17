@@ -1,0 +1,1 @@
+add_header "Content-Security-Policy" "$POLICY; report-uri /csprg_collector2.php";

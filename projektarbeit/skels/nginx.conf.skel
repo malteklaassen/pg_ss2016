@@ -1,0 +1,99 @@
+# Based on the Arch Linux Nginx default configuration
+
+user csprg;
+worker_processes  1;
+
+#error_log  logs/error.log;
+#error_log  logs/error.log  notice;
+#error_log  logs/error.log  info;
+
+#pid        logs/nginx.pid;
+
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    #log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+    #                  '$status $body_bytes_sent "$http_referer" '
+    #                  '"$http_user_agent" "$http_x_forwarded_for"';
+
+    #access_log  logs/access.log  main;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    #keepalive_timeout  0;
+    keepalive_timeout  65;
+
+    #gzip  on;
+
+    # This is the actual proxying server. You can remove this section if you want to deploy the CSP on the real server.
+    server {
+        listen       80;
+        server_name  localhost;
+
+        location / {
+            proxy_pass	$SERVER;
+            include csp.conf;
+        }
+
+        #error_page  404              /404.html;
+
+        # redirect server error pages to the static page /50x.html
+        # I'm not actually sure if we need this as we forward everything to the backend server.
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+
+        location ~ csprg_collector2.php$ {
+            fastcgi_pass   127.0.0.1:9000;
+            fastcgi_index  index.php;
+            fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+            include        fastcgi_params;
+            include        fastcgi.conf;
+        }
+    }
+
+    # The virtual server used for generation.
+    server {
+        listen       8080;
+        server_name  localhost;
+
+        location / {
+            proxy_pass	$SERVER;
+            add_header "Content-Security-Policy-Report-Only" "default-src 'none'; report-uri /csprg_collector.php"; # This policy DOES NOT properly work with Firefox as Firefox only reports the ACTUAL directive that was violated which would always be 'default-src'. If you want to use Firefox instead of Chrome you will need a directive that list every source-type.
+        }
+
+        #error_page  404              /404.html;
+
+        # redirect server error pages to the static page /50x.html
+        #
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+
+        # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+        #
+        location ~ csprg_collector.php$ {
+            fastcgi_pass   127.0.0.1:9000;
+            fastcgi_index  index.php;
+            fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+            include        fastcgi_params;
+            include        fastcgi.conf;
+
+				# The Whitelist could alternatively also be put in the serverblock to also deny requests, not just POSTs to this script.
+            allow $CLIENT;	# If you need more than one test-client, add them here.
+            deny all;		# Don't allow random people to send violation reports.
+        }
+
+    }
+
+}

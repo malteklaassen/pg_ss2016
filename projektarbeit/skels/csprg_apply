@@ -1,0 +1,3 @@
+#!/bin/bash
+read policy < /usr/share/csprg/csprg_collector.csp
+sed "s=\$POLICY=$policy=g" /etc/nginx/csp.conf.skel > /etc/nginx/csp.conf

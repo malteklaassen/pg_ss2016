@@ -1,0 +1,7 @@
+{
+	"self":"$SELF",
+	"inpath":"/usr/share/csprg/csprg_collector.txt",
+        "outpath":"/usr/share/csprg/csprg_collector.csp",
+	"inline":["style-src"],
+        "eval":[]
+}
