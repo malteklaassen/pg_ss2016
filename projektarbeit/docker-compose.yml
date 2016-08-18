@@ -1,0 +1,4 @@
+collector:
+  build: collector
+  ports:
+    - 9000:9000
