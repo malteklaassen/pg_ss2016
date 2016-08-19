@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Main where
 -- in some versions: Data.JSON etc
 import Text.JSON
@@ -11,6 +13,11 @@ import Text.URI
 import Prelude hiding (lookup)
 import qualified Prelude (lookup)
 
+import Data.Aeson
+import Control.Applicative
+import Control.Monad
+import qualified Data.ByteString.Lazy as BSL
+import GHC.Generics
 
 {-
 Two example reports as sent by Google Chrome with Policy "script-src 'none'; media-src 'none'; img-src 'none'; report-uri /read.php".
@@ -73,63 +80,14 @@ main =
 --CONFIG SECTION--
 -------------------------------------------------------------------------
 
-data Conf = Conf { self :: String, inpath :: String, outpath :: String, inline :: [String], eval :: [String]}
+data Conf = Conf { self :: String, inpath :: String, outpath :: String, inline :: [String], eval :: [String]} deriving (Generic)
+
+instance FromJSON Conf
+instance ToJSON Conf
 
 readConf :: String -> IO (Either String Conf)
 readConf cpath =
-  do
-    chandle <- openFile cpath ReadMode
-    lines <- hGetLines chandle
-    let line = concat lines
-    hClose chandle
-    return (parseConf line)
-
-lookup :: (Eq a, Show a) => a -> [(a, b)] -> Either String b
-lookup v xs = 
-  case Prelude.lookup v xs of
-    Just x -> Right x
-    Nothing -> Left ("Key " ++ show v ++ " not found.")
-
-parseConf :: String -> Either String Conf
-parseConf line = 
-  do
-    obj <- 
-      case runGetJSON readJSObject line of
-        Right (JSObject obj) -> return obj
-        otherwise -> Left "Couldn't parse to JSON Object"
-    jvinpath <- lookup "inpath" . fromJSObject $ obj
-    jvoutpath <- lookup "outpath" . fromJSObject $ obj
-    jvself <- lookup "self" . fromJSObject $ obj
-    javinline <- lookup "inline" . fromJSObject $ obj
-    javeval <- lookup "eval" . fromJSObject $ obj
-    vinpath <- case jvinpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> Left "input path config field has wrong type" }
-    voutpath <- case jvoutpath of {JSString vpath -> return . fromJSString $ vpath; otherwise -> Left "output path config field has wrong type" }
-    vself <- case jvself of {JSString vself -> return . fromJSString $ vself; otherwise -> Left "self config field has wrong type" }
-    avinline <- case javinline of {JSArray avinline -> return avinline; otherwise -> Left "inline config field has wrong type" }
-    aveval <- case javeval of {JSArray aveval -> return aveval; otherwise -> Left "eval config field has wrong type" }
-    vinline <-
-      mapM
-        ( 
-          \jvinline
-            ->
-              case jvinline of
-                JSString vinline -> return . fromJSString $ vinline
-                otherwise -> Left "inline config field has wrong type"
-        )
-      avinline
-    veval <-
-      mapM
-        ( 
-          \jveval
-            ->
-              case jveval of
-                JSString veval -> return . fromJSString $ veval
-                otherwise -> Left "eval config field has wrong type"
-        )
-      aveval
-    return Conf {self = vself, inpath = vinpath, outpath = voutpath, inline = vinline, eval = veval}
-        
-      
+  (eitherDecode <$> BSL.readFile cpath)
 
 -------------------------------------------------------------------------
 --ACTUAL STUFF SECTION--
@@ -193,6 +151,13 @@ hGetLines handle =
           line <- hGetLine handle
           lines <- hGetLines handle
           return (line:lines)
+
+-- lookup in the list generate from JSON
+lookup :: (Eq a, Show a) => a -> [(a, b)] -> Either String b
+lookup v xs = 
+  case Prelude.lookup v xs of
+    Just x -> Right x
+    Nothing -> Left ("Key " ++ show v ++ " not found.")
 
 -- JSON reduction
 -- All wrapped in Maybe-Monads for easier error-handling
