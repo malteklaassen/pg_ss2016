@@ -2,7 +2,7 @@
 docker cp csprg_collector_1:/var/www/html/csprg_collector.txt /usr/share/csprg/csprg_collector.txt
 csprg_chrome
 read policy < /usr/share/csprg/csprg_collector.csp
-if [[ $policy =~ [-a-zA-Z0-9:\./\'\;\n\ ]* ]];
+if [[ $policy =~ [a-zA-Z0-9\ \=_\;:\?/\.\'\*\&\%+-]* ]];
 then
 	sed "s=\$POLICY=$policy=g" /usr/share/csprg/proxyprod/src/csp.conf.skel > /usr/share/csprg/proxyprod/src/csp.conf
 	docker cp /usr/share/csprg/proxyprod/src/csp.conf csprg_proxyprod_1:/etc/nginx/csp.conf
