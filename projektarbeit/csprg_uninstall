@@ -1,0 +1,14 @@
+#!/bin/bash
+
+## Stop and remove the containers
+docker-compose -f /usr/share/csprg/docker-compose.yml down
+# We will not remove the images, these should be removed by hand if needed
+
+## Remove the config and data folders
+rm -r /usr/share/csprg /etc/csprg
+
+## Remove the executables
+rm /usr/bin/csprg_start /usr/bin/csprg_stop /usr/bin/csprg_chrome /usr/bin/csprg_generate
+
+## Remove this
+rm /usr/bin/csprg_uninstall
