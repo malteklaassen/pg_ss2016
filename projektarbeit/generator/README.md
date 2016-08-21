@@ -43,3 +43,6 @@ Fields:
  4. `eval` is an array of sources that should allow `unsafe-eval`
 
 Theoretically `self` should be deducable from the reports, though we are not certain about the stability of this. If an illegal occurence of a keyword (inline, eval) occurs, the generation will fail.
+
+## Generation
+Generation is done by simply calling `sudo csprg_generate` while the Docker containers are up. This will write a policy to the specified output file and also apply this policy to `proxyprod`.

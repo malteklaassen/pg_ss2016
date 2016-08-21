@@ -1,6 +1,5 @@
 # Based on the Arch Linux Nginx default configuration
 
-user csprg;
 worker_processes  1;
 
 #error_log  logs/error.log;
@@ -39,8 +38,8 @@ http {
         server_name  localhost;
 
         location / {
-            proxy_pass	http://bonnbox.stw-bonn.de;
-            add_header "Content-Security-Policy" "default-src 'none'; report-uri /csprg_collector2.php";
+            proxy_pass	$SERVER;
+            include csp.conf;
         }
 
         #error_page  404              /404.html;
@@ -59,37 +58,6 @@ http {
             include        fastcgi_params;
             include        fastcgi.conf;
         }
-    }
-
-    # The virtual server used for generation.
-    server {
-        listen       8080;
-        server_name  localhost;
-
-        location / {
-            proxy_pass	http://bonnbox.stw-bonn.de;
-            add_header "Content-Security-Policy-Report-Only" "default-src 'none'; report-uri /csprg_collector.php";
-        }
-
-        #error_page  404              /404.html;
-
-        # redirect server error pages to the static page /50x.html
-        #
-        error_page   500 502 503 504  /50x.html;
-        location = /50x.html {
-            root   /usr/share/nginx/html;
-        }
-
-        # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
-        #
-        location ~ csprg_collector.php$ {
-            fastcgi_pass   127.0.0.1:9000;
-            fastcgi_index  index.php;
-            fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
-            include        fastcgi_params;
-            include        fastcgi.conf;
-        }
-
     }
 
 }

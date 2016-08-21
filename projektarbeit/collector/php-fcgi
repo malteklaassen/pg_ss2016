@@ -1,2 +1,0 @@
-echo "Starting php-cgi listening on 127.0.0.1:9000"
-nohup sudo -u csprg php-cgi -b 127.0.0.1:9000 & > /usr/share/csprg/php-fcgi.log

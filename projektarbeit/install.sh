@@ -1,34 +1,39 @@
 #!/bin/bash
 
-## Prep
-mkdir -p /usr/share/csprg
+## Prepare config and data folders
 mkdir -p /etc/csprg
-# Creating systemuser csprg if he doesn't already exists
-id -u csprg &> /dev/null || useradd -r -s /usr/bin/nologin csprg
-# Setting permissions on created directories
-chown csprg:csprg /usr/share/csprg
-chmod g+w /usr/share/csprg
+mkdir -p /usr/share/csprg
+if [ ! -f /usr/share/csprg/csprg_collector.csp ]; then
+	echo "default-src 'none'" > /usr/share/csprg/csprg_collector.csp
+fi
 
-## Proxy
+## Configure the proxies
 echo "Enter the URL of the server you want to proxy (e.g. https://www2.example.com:80 ):"
 read server
-echo "Enter the address of the client that will run the tests (e.g. 192.168.56.101 ):"
-read client
-sed "s=\$SERVER=$server=g" skels/nginx.conf.skel | sed "s=\$CLIENT=$client=g" > /etc/nginx/nginx.conf
-sed "s=\$POLICY=default-src 'none'=g" skels/csp.conf.skel > /etc/nginx/csp.conf
-cp skels/csp.conf.skel /etc/nginx/csp.conf.skel
-cp proxy/fastcgi.conf /etc/nginx/fastcgi.conf
-cp proxy/fastcgi_params /etc/nginx/fastcgi_params
+## Suspended for now
+# echo "Enter the address of the client that will run the tests (e.g. 192.168.56.101 ):"
+# read client
+sed "s=\$SERVER=$server=g" proxygen/src/nginx.conf.skel > proxygen/src/nginx.conf
+sed "s=\$SERVER=$server=g" proxyprod/src/nginx.conf.skel > proxyprod/src/nginx.conf
+
+read policy < /usr/share/csprg/csprg_collector.csp
+sed "s=\$POLICY=$policy=g" proxyprod/src/csp.conf.skel > proxyprod/src/csp.conf
+
+## Copy the Containers
+cp -r proxygen /usr/share/csprg
+cp -r proxyprod /usr/share/csprg
 
 ## Collector
-cp collector/csprg_collector.php /usr/share/csprg/csprg_collector.php
-cp collector/csprg_collector2.php /usr/share/csprg/csprg_collector2.php
-cp collector/php-fcgi /usr/bin/php-fcgi
+cp -r collector /usr/share/csprg
+
+## Copy the docker-compose file and build
+cp docker-compose.yml /usr/share/csprg/docker-compose.yml
+docker-compose -f /usr/share/csprg/docker-compose.yml build
+cp csprg_start /usr/bin/csprg_start
 
 ## Generator
 echo "Enter the URL under which the client will find the server (e.g. http://192.168.56.1:8080 ):"
 read self
-sed "s=\$SELF=$self=g" skels/gen.conf.skel > /etc/csprg/gen.conf
+sed "s=\$SELF=$self=g" generator/gen.conf.skel > /etc/csprg/gen.conf
+cp generator/csprg_generate /usr/bin/csprg_generate
 cp generator/csprg_chrome /usr/bin/csprg_chrome
-
-cp skels/csprg_apply /usr/bin/csprg_apply

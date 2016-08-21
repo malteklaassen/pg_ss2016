@@ -1,0 +1,16 @@
+collector:
+  build: collector
+  ports:
+    - 9000:9000
+
+proxygen:
+  build: proxygen
+  ports:
+    - 8080:8080
+  net: "host"
+
+proxyprod:
+  build: proxyprod
+  ports:
+    - 80:80
+  net: "host"

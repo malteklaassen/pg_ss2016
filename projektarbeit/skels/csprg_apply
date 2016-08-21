@@ -1,9 +1,0 @@
-#!/bin/bash
-read policy < /usr/share/csprg/csprg_collector.csp
-# Checking that the given policy does not do bad stuff to our configuration ;)
-if [[ $policy =~ [-a-zA-Z0-9:\./\'\;\n\ ]* ]];
-then
-	sed "s=\$POLICY=$policy=g" /etc/nginx/csp.conf.skel > /etc/nginx/csp.conf
-else
-	echo "Policy contains illegal characters, will not apply"
-fi

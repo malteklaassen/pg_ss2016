@@ -3,10 +3,10 @@ CSP Reporting is simple POSTing of a JSON object for every violation to a URL sp
  1. Taking in the violation reports
  2. Storing the reports / passing the reports to the generator
 
-For this we use cgi/fcgi through php-cgi in bindaddress-mode or php-fpm in combination with nginx (or any other webserver).
+For this we use a php:fpm Docker container, listening on port 9000.
 
 ## Configurations
-A full example configuration can be found in the [proxy-folder](../proxy/).
+A full example configuration can be found in the [proxy-folders](../proxygen/).
 
 When using nginx with fastcgi for the `csprg_collector.php` or `csprg_collector2.php` files we need to configure nginx to pass these requests to our locally running php-cgi instance. This looks something like this:
 
@@ -21,4 +21,4 @@ location ~ csprg_collector.php$ {
 
 Also, the policy of the generation-server must include something along the lines of `report-uri /csprg_collector.php`.
 
-The other thing we need is for the according php-files to be placed in `$document_root` (which we have set in the example configuration to `/usr/share/csprg/`) and the nginx and php-cgi to have write permissions on the output files.
+The other thing we need is for the according php-files to be placed in `$document_root` (which we have set in the example configuration to `/var/www/html/`) and the user `www-data` has to have write access to that folder or at least the according files.
