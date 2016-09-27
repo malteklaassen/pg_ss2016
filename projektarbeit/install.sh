@@ -29,8 +29,8 @@ cp -r collector /usr/share/csprg
 ## Copy the docker-compose file and build
 cp docker-compose.yml /usr/share/csprg/docker-compose.yml
 docker-compose -f /usr/share/csprg/docker-compose.yml build
-cp csprg_start /usr/bin/csprg_start
-cp csprg_stop /usr/bin/csprg_stop
+cp src/csprg_start /usr/bin/csprg_start
+cp src/csprg_stop /usr/bin/csprg_stop
 
 ## Generator
 echo "Enter the URL under which the client will find the server (e.g. http://192.168.56.1:8080 ):"
@@ -40,4 +40,4 @@ cp generator/csprg_generate /usr/bin/csprg_generate
 cp generator/csprg_chrome /usr/bin/csprg_chrome
 
 ## Uninstall
-cp csprg_uninstall /usr/bin/csprg_uninstall
+cp src/csprg_uninstall /usr/bin/csprg_uninstall

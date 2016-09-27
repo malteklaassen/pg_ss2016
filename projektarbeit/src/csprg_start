@@ -1,2 +1,3 @@
 #!/bin/bash
+docker-compose -f /usr/share/csprg/docker-compose.yml build
 docker-compose -f /usr/share/csprg/docker-compose.yml up -d

@@ -3,5 +3,12 @@
 	"inpath":"/usr/share/csprg/csprg_collector.txt",
         "outpath":"/usr/share/csprg/csprg_collector.csp",
 	"inline":["style-src"],
-        "eval":[]
+        "eval":[],
+        "whitelist": 
+                [
+                ],
+        "blacklist":
+                [ {"directive":"script-src", "value":"unsafe-inline"}
+                , {"directive":"script-src", "value":"unsafe-eval"}
+                ]
 }

@@ -7,7 +7,9 @@ import Text.JSON.String
 import Text.JSON.Generic
 import System.IO
 import qualified Data.Map.Strict as Map
+import Data.Map.Strict (Map)
 import Data.List hiding (lookup)
+import Data.Either (rights, lefts)
 -- in some versions: Network.URI
 import Text.URI
 import Prelude hiding (lookup)
@@ -60,83 +62,20 @@ main =
           Left msg -> 
               error $ "Error in parsing config: " ++ msg
     handle <- openFile (inpath conf) ReadMode
-    lines <- hGetLines handle -- Input
+    lines <- hGetLines handle -- Read in the reports
     hClose handle
-    case linesToPolicy conf lines of --Processing
-      Right policy 
-        -> 
-          do
-            handle <- openFile (outpath conf) WriteMode
-            hPutStr handle policy
-            hClose handle
-            putStrLn $ "Policy generation successful. The generated policy is:"
-            putStrLn $ policy
-      Left msg 
-        -> 
-          do
-            error $ "Error in generating policy: " ++ msg
+    let (errs, policy) = linesToPolicy conf lines --Process the reports into a policy
+    mapM putStrLn errs -- Print out all occuring warnings/errors
+    handle <- openFile (outpath conf) WriteMode -- Write to file
+    hPutStr handle policy
+    hClose handle
+    putStrLn $ "Policy generation successful. The generated policy is:"
+    putStrLn $ policy
 
 -------------------------------------------------------------------------
---CONFIG SECTION--
+--HELPERS SECTION--
 -------------------------------------------------------------------------
 
-data Conf = Conf { self :: String, inpath :: String, outpath :: String, inline :: [String], eval :: [String]} deriving (Generic)
-
-instance FromJSON Conf
-instance ToJSON Conf
-
-readConf :: String -> IO (Either String Conf)
-readConf cpath =
-  (eitherDecode <$> BSL.readFile cpath)
-
--------------------------------------------------------------------------
---ACTUAL STUFF SECTION--
--------------------------------------------------------------------------
-
-linesToPolicy :: Conf -> [String] -> Either String String
-linesToPolicy conf lines =
-  do -- Either String-Monad for easier processing and logging
-    reduced <- reduce lines -- reduction on important Fields
-    let grouped = groupFirst . map (\(x,y) -> (y,x)) $ reduced -- grouping on directive-value
-    let selfed = map (\(key, values) -> (key, map (\value -> if isPrefixOf (self conf) value then "'self'" else value ) $ values )) $ grouped -- inserting 'self' where needed
-    keyworded -- replacing eval and inline with keywords where allowed
-      <- 
-        mapM 
-          (
-            \(key, values) 
-              -> 
-                do
-                  ivalues 
-                    <- 
-                      mapM
-                        (
-                          \value
-                            ->
-                              case value of
-                                "inline"
-                                  ->
-                                    if elem key (inline conf)
-                                      then
-                                        return "'unsafe-inline'"
-                                      else
-                                        Left $ "illegal inline at key " ++ key ++ ". No correct policy can be generated."
-                                "eval"
-                                  ->
-                                    if elem key (eval conf)
-                                      then
-                                        return "'unsafe-eval'"
-                                      else
-                                        Left $ "illegal eval at key " ++ key ++ ". No correct policy can be generated."
-                                otherwise
-                                  ->
-                                    return value
-                        )
-                        values
-                  return (key, ivalues)
-          ) 
-          selfed
-    return . concat . intersperse "; " . map (\(key, values) -> key ++ " " ++ (concat . intersperse " " $ values)) . map (\(key, values) -> (key, nub values)) $ keyworded
-       
 
 -- Get lines from one Handle until EOF
 hGetLines :: Handle -> IO [String]
@@ -152,25 +91,81 @@ hGetLines handle =
           lines <- hGetLines handle
           return (line:lines)
 
--- lookup in the list generate from JSON
-lookup :: (Eq a, Show a) => a -> [(a, b)] -> Either String b
-lookup v xs = 
-  case Prelude.lookup v xs of
-    Just x -> Right x
-    Nothing -> Left ("Key " ++ show v ++ " not found.")
+-------------------------------------------------------------------------
+--CONFIG SECTION--
+-------------------------------------------------------------------------
 
--- JSON reduction
--- All wrapped in Maybe-Monads for easier error-handling
-reduce :: [String] -> Either String [(String, String)]
-reduce = 
-  mapM 
-    ( 
-      \line 
-        -> 
-          do 
-            inner <- lineToInnerObject line -- line -> JSON
-            reduceObjectToImportantFields inner-- JSON -> (String, String)
-    )
+-- An entry of the black- or whitelist
+data Entry = Entry { directive :: String, value :: String } deriving (Generic, Show, Eq)
+data Conf = Conf { self :: String, inpath :: String, outpath :: String,  whitelist :: [Entry], blacklist :: [Entry]} deriving (Generic, Show)
+
+instance FromJSON Entry
+instance ToJSON Entry
+instance FromJSON Conf
+instance ToJSON Conf
+
+readConf :: String -> IO (Either String Conf)
+readConf cpath =
+  (eitherDecode <$> BSL.readFile cpath)
+
+-------------------------------------------------------------------------
+--ACTUAL STUFF SECTION--
+-------------------------------------------------------------------------
+
+{-
+	This is where the magic happens - somewhat likes this:
+	0.	Create a map from Whitelist
+	1. 	Map a reduction on every input line, reducing it to Either String (String, String) (and already do replacement of keywords and blacklistcheck)
+	2.	Fold the successfull lines into a Map Directivename [Value] starting with Whitelist, doing dup-removal, grouping
+	3.	Fold the unsuccessfull lines into [Errormsg]
+	4.	Turn the map into a policy
+	5.	Return ([Errormsg], Policy)
+-}
+
+type Errormsg = String
+type Policy = String
+type Line = String
+linesToPolicy :: Conf -> [Line] -> ([Errormsg], Policy)
+linesToPolicy conf lines = 
+  let
+    wl = foldr (\entry wl -> Map.insertWith ((++)) (directive entry) [(value entry)] wl) Map.empty (whitelist conf)
+    mappedLines = map (parseLine conf) lines
+  in
+    (lefts mappedLines, mapToPolicy . buildPolicy wl . rights $ mappedLines)
+
+type DName =  String
+type DValue = String
+parseLine :: Conf -> Line -> Either Errormsg (DName, DValue)
+parseLine conf line = 
+  let
+    reduced = do  -- Remove the JSON and reduce to important fields
+      inner <- lineToInnerObject line
+      reduceObjectToImportantFields inner
+    replaced = case reduced of -- Replaced occurences of self, eval and inline
+      Left _ -> Left ("Could not parse line: " ++ line)
+      Right d@(dname, dvalue) -> case dvalue of
+        "inline" -> Right (dname, "'unsafe-inline'")
+        "eval" -> Right (dname, "'unsafe-eval'")
+        otherwise -> if isPrefixOf (self conf) dvalue then Right (dname, "'self'") else Right d
+    bled = case replaced of -- Blacklistchecks
+      Left err -> Left err
+      Right d@(dname, dvalue) -> case elem (Entry {directive = dname, value = dvalue}) (blacklist conf) of
+        True -> Left ("Line matches blacklist entry: " ++ line)
+        False -> Right d
+  in
+    bled
+
+-- Builds a map of the policy from the given Whitelist and reports.
+buildPolicy :: Map DName [DValue] -> [(DName, DValue)] -> Map DName [DValue]
+buildPolicy wl lines =
+  let
+    lineMap = Map.fromListWith (++) . map (\(k,a) -> (k, [a])) $ lines
+  in
+    Map.map nub . Map.unionWith (++) wl $ lineMap
+
+-- Flattens the Map into a policy
+mapToPolicy :: Map DName [DValue] -> Policy
+mapToPolicy = concat . map (\(dname, dvalue) -> dname ++ " " ++ (concat . intersperse " " $ dvalue) ++ "; ") . Map.toList
 
 -- We have an outer and an inner JSON-Object. The outer one is of no relevance for us but still has to be stripped
 lineToInnerObject :: String -> Either String (JSObject JSValue)
@@ -195,49 +190,14 @@ reduceObjectToImportantFields obj =
     uri <- lookup "blocked-uri" . fromJSObject $ obj
     directive <- lookup "effective-directive" . fromJSObject $ obj
     case (uri, directive) of
-      (JSString uri_, JSString directive_) -> return (fromJSString uri_, fromJSString directive_)
+      (JSString uri_, JSString directive_) -> return (fromJSString directive_, fromJSString uri_)
       otherwise -> Left "uri or directive could not be parsed to a string"
-     
--- Grouping on first argument, based on a map. I'm really not happy with this solution but it does it's job.
-groupFirst :: Ord a => [(a, String)] -> [(a, [String])]
--- 1. Create a map
--- 2. Collect the keys
--- 3. concat
-groupFirst xs = 
-  case 
-    mapM -- Map.lookup is [...] -> Maybe a, so delegate the Maybe to the outside of the list were we strip it. As Nothing cant happen anyway we could also use fromJust.
-      (
-        \key
-          -> 
-            case Map.lookup key (makeMap xs) of
-              Just string -> return (key, string)
-              otherwise -> error "This cant happen//1"
-      ) 
-      (allKeys $ xs) 
-  of
-    Just x -> x
-    Nothing -> error "This cant happen//2"
 
--- Generate a Map key -> [value]. We DONT do duplicate reduction here, that is done after further processing. If you want some duplicate reduction done earlier, you should probably already do it even earlier than this.
-makeMap :: Ord a => [(a, String)] -> Map.Map a [String]
-makeMap = 
-  foldr 
-    (
-      \(key,value) oldmap 
-        -> 
-          Map.insertWith 
-            (
-              ++
-              {-\s1 s2 
-                -> 
-                  if elem value s2 then s2 else value:s2-}
-            ) 
-            key 
-            [value] 
-            oldmap
-    ) 
-    Map.empty
+-- lookup in the list generate from JSON
+lookup :: (Eq a, Show a) => a -> [(a, b)] -> Either String b
+lookup v xs = 
+  case Prelude.lookup v xs of
+    Just x -> Right x
+    Nothing -> Left ("Key " ++ show v ++ " not found.")
 
--- Returns all the keys for the map.
-allKeys :: Eq a => [(a, String)] -> [a]
-allKeys = nub . map fst
+
