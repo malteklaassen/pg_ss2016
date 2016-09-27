@@ -39,8 +39,6 @@ Please make sure you have all the dependencies installed:
  2. docker-compose
  3. ghc 
  4. cabal
-   1. URI
-   2. JSON
    3. Aeson
 
 Then run:
@@ -54,4 +52,4 @@ Then run:
 
 Before running future tests you might have to reset the `collector` container as otherwise old reports will be accumulating.
 
-If step 3. fails you might have to relax the `eval` and `inline` configurations for generation or change parts of the site. In general `inline` and `eval` should be used as little as possible, especially for `script-src`.
+In the configuration file (`/etc/csprg/gen.conf`) you can add directives that will be automatically be added or never be added to the policy.
