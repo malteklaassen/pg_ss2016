@@ -1,52 +1,20 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric, OverloadedStrings #-}
 
 module Main where
--- in some versions: Data.JSON etc
-import Text.JSON
-import Text.JSON.String
-import Text.JSON.Generic
-import System.IO
-import qualified Data.Map.Strict as Map
-import Data.Map.Strict (Map)
-import Data.List hiding (lookup)
-import Data.Either (rights, lefts)
--- in some versions: Network.URI
-import Text.URI
-import Prelude hiding (lookup)
-import qualified Prelude (lookup)
+import System.IO as SIO (Handle, IOMode (ReadMode, WriteMode), hIsEOF, hClose, hGetLine, hPutStr, openFile)
+
+import Data.Map.Strict as DMS (Map, insertWith, fromListWith, unionWith, toList)
+import qualified Data.Map.Strict as DMS (map, empty)
+
+import Data.List as DL (isPrefixOf, nub, intersperse)
+import Data.Either as DE (rights, lefts)
 
 import Data.Aeson
 import Control.Applicative
 import Control.Monad
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy as BSL 
+import qualified Data.ByteString.Lazy.Char8 as C -- for packing, could potentially be avoided with a different read function
 import GHC.Generics
-
-{-
-Two example reports as sent by Google Chrome with Policy "script-src 'none'; media-src 'none'; img-src 'none'; report-uri /read.php".
-Due to the field "effective-directive" the usage of Chrome should be easier - even though Chrome seems to not always report the correct original-directive but a simplified equivalent one. Unluckily this makes it incompatible with Firefox, as Firefox reports the violated directive from the actual original policy. 
-{"csp-report":
-	{"document-uri":"http://localhost/ssl.html"
-	,"referrer":""
-	,"violated-directive":"img-src 'none'"
-	,"effective-directive":"img-src"
-	,"original-policy":"script-src 'none'; media-src 'none'; img-src 'none'; report-uri /read.php"
-	,"blocked-uri":"https://pbs.twimg.com"
-	,"status-code":200
-	}
-}
-
-{"csp-report":
-	{"document-uri":"http://localhost/malte/gm.html"
-	,"referrer":""
-	,"violated-directive":"default-src 'none'"
-	,"effective-directive":"style-src"
-	,"original-policy":"default-src 'none'; report-uri /read.php"
-	,"blocked-uri":"https://fonts.googleapis.com"
-	,"source-file":"https://maps.googleapis.com"
-	,"line-number":42
-	,"column-number":402
-	,"status-code":200}}
--}
 
 confPath = "/etc/csprg/gen.conf"
 
@@ -122,13 +90,35 @@ readConf cpath =
 	5.	Return ([Errormsg], Policy)
 -}
 
+data OuterReport = OuterReport
+  { cspReport :: Report } deriving (Eq, Show)
+instance FromJSON OuterReport where
+  parseJSON (Object x) = OuterReport <$> x.: "csp-report"
+  parseJSON _ = fail "Exptected an Object"
+instance ToJSON OuterReport where
+  toJSON oReport = object
+    [ "csp-report" .= cspReport oReport ]
+
+data Report = Report 
+  { blockedUri :: String
+  , effectiveDirective :: String
+  } deriving (Eq, Show)
+instance FromJSON Report where
+  parseJSON (Object x) = Report <$> x .: "blocked-uri" <*> x.: "effective-directive"
+  parseJSON _ = fail "Expected an Object"
+instance ToJSON Report where
+  toJSON report = object
+    [ "blocked-uri" .= blockedUri report
+    , "effective-directiv" .= effectiveDirective report
+    ]
+
 type Errormsg = String
 type Policy = String
 type Line = String
 linesToPolicy :: Conf -> [Line] -> ([Errormsg], Policy)
 linesToPolicy conf lines = 
   let
-    wl = foldr (\entry wl -> Map.insertWith ((++)) (directive entry) [(value entry)] wl) Map.empty (whitelist conf)
+    wl = foldr (\entry wl -> insertWith ((++)) (directive entry) [(value entry)] wl) DMS.empty (whitelist conf)
     mappedLines = map (parseLine conf) lines
   in
     (lefts mappedLines, mapToPolicy . buildPolicy wl . rights $ mappedLines)
@@ -138,9 +128,10 @@ type DValue = String
 parseLine :: Conf -> Line -> Either Errormsg (DName, DValue)
 parseLine conf line = 
   let
-    reduced = do  -- Remove the JSON and reduce to important fields
-      inner <- lineToInnerObject line
-      reduceObjectToImportantFields inner
+    -- Remove the JSON and reduce to important fields
+    reduced = case (eitherDecode :: C.ByteString -> Either String OuterReport) (C.pack line) of
+      Left e -> Left e
+      Right or -> let r = cspReport or in Right (effectiveDirective r, blockedUri r)
     replaced = case reduced of -- Replaced occurences of self, eval and inline
       Left _ -> Left ("Could not parse line: " ++ line)
       Right d@(dname, dvalue) -> case dvalue of
@@ -159,45 +150,17 @@ parseLine conf line =
 buildPolicy :: Map DName [DValue] -> [(DName, DValue)] -> Map DName [DValue]
 buildPolicy wl lines =
   let
-    lineMap = Map.fromListWith (++) . map (\(k,a) -> (k, [a])) $ lines
+    lineMap = fromListWith (++) . map (\(k,a) -> (k, [a])) $ lines
   in
-    Map.map nub . Map.unionWith (++) wl $ lineMap
+    DMS.map nub . unionWith (++) wl $ lineMap
 
 -- Flattens the Map into a policy
 mapToPolicy :: Map DName [DValue] -> Policy
-mapToPolicy = concat . map (\(dname, dvalue) -> dname ++ " " ++ (concat . intersperse " " $ dvalue) ++ "; ") . Map.toList
-
--- We have an outer and an inner JSON-Object. The outer one is of no relevance for us but still has to be stripped
-lineToInnerObject :: String -> Either String (JSObject JSValue)
-lineToInnerObject line =
-  do
-    outerObject <-
-      case runGetJSON readJSObject line of
-        Right (JSObject outerObject) -> return outerObject
-        otherwise -> Left "Could not parse outer Object"
-    innerObject <- 
-      case (map snd) . filter (\(s, _) -> s == "csp-report") . fromJSObject $ outerObject of
-        [JSObject innerObject] -> return $ innerObject -- There may be EXACTALY ONE OBJECT
-        otherwise -> Left "Could not parse inner Object"
-    return innerObject -- semantically not necessary, but nicer formatting
-
-type RelevantData = (String, String) -- I just always wanted to name a Data Type "RelevantData", holds the directive and value extracted from JSON
-
--- Maybe RelevantData is just a nice thing to have in code
-reduceObjectToImportantFields :: JSObject JSValue -> Either String RelevantData
-reduceObjectToImportantFields obj =
-  do
-    uri <- lookup "blocked-uri" . fromJSObject $ obj
-    directive <- lookup "effective-directive" . fromJSObject $ obj
-    case (uri, directive) of
-      (JSString uri_, JSString directive_) -> return (fromJSString directive_, fromJSString uri_)
-      otherwise -> Left "uri or directive could not be parsed to a string"
+mapToPolicy = concat . map (\(dname, dvalue) -> dname ++ " " ++ (concat . intersperse " " $ dvalue) ++ "; ") . toList
 
 -- lookup in the list generate from JSON
-lookup :: (Eq a, Show a) => a -> [(a, b)] -> Either String b
-lookup v xs = 
+lookupJS :: (Eq a, Show a) => a -> [(a, b)] -> Either String b
+lookupJS v xs = 
   case Prelude.lookup v xs of
     Just x -> Right x
     Nothing -> Left ("Key " ++ show v ++ " not found.")
-
-
