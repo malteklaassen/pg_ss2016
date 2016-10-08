@@ -12,3 +12,4 @@ else
 	echo "Illegal policy"
 fi
 csprg_start
+echo "The generate policy is:\n$policy"

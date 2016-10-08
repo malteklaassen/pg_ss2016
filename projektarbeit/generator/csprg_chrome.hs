@@ -10,12 +10,11 @@ import Data.List as DL (isPrefixOf, nub, intersperse)
 import Data.Either as DE (rights, lefts)
 
 import Data.Aeson
-import Control.Applicative
-import Control.Monad
 import qualified Data.ByteString.Lazy as BSL 
 import qualified Data.ByteString.Lazy.Char8 as C -- for packing, could potentially be avoided with a different read function
-import GHC.Generics
+import GHC.Generics (Generic)
 
+-- Hardcoded path of the Config file
 confPath = "/etc/csprg/gen.conf"
 
 -- Reads in the file, processes the reports and prints out the policy suggestion
@@ -68,9 +67,7 @@ data Entry = Entry { directive :: String, value :: String } deriving (Generic, S
 data Conf = Conf { self :: String, inpath :: String, outpath :: String,  whitelist :: [Entry], blacklist :: [Entry]} deriving (Generic, Show)
 
 instance FromJSON Entry
-instance ToJSON Entry
 instance FromJSON Conf
-instance ToJSON Conf
 
 readConf :: String -> IO (Either String Conf)
 readConf cpath =
@@ -95,9 +92,6 @@ data OuterReport = OuterReport
 instance FromJSON OuterReport where
   parseJSON (Object x) = OuterReport <$> x.: "csp-report"
   parseJSON _ = fail "Exptected an Object"
-instance ToJSON OuterReport where
-  toJSON oReport = object
-    [ "csp-report" .= cspReport oReport ]
 
 data Report = Report 
   { blockedUri :: String
@@ -106,11 +100,6 @@ data Report = Report
 instance FromJSON Report where
   parseJSON (Object x) = Report <$> x .: "blocked-uri" <*> x.: "effective-directive"
   parseJSON _ = fail "Expected an Object"
-instance ToJSON Report where
-  toJSON report = object
-    [ "blocked-uri" .= blockedUri report
-    , "effective-directiv" .= effectiveDirective report
-    ]
 
 type Errormsg = String
 type Policy = String
@@ -148,19 +137,10 @@ parseLine conf line =
 
 -- Builds a map of the policy from the given Whitelist and reports.
 buildPolicy :: Map DName [DValue] -> [(DName, DValue)] -> Map DName [DValue]
-buildPolicy wl lines =
-  let
-    lineMap = fromListWith (++) . map (\(k,a) -> (k, [a])) $ lines
-  in
-    DMS.map nub . unionWith (++) wl $ lineMap
+buildPolicy wl =
+  DMS.map nub . unionWith (++) wl . fromListWith (++) . map (\(k,a) -> (k, [a]))
 
 -- Flattens the Map into a policy
 mapToPolicy :: Map DName [DValue] -> Policy
 mapToPolicy = concat . map (\(dname, dvalue) -> dname ++ " " ++ (concat . intersperse " " $ dvalue) ++ "; ") . toList
 
--- lookup in the list generate from JSON
-lookupJS :: (Eq a, Show a) => a -> [(a, b)] -> Either String b
-lookupJS v xs = 
-  case Prelude.lookup v xs of
-    Just x -> Right x
-    Nothing -> Left ("Key " ++ show v ++ " not found.")

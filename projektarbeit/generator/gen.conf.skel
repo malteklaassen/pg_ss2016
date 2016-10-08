@@ -2,10 +2,8 @@
 	"self":"$SELF",
 	"inpath":"/usr/share/csprg/csprg_collector.txt",
         "outpath":"/usr/share/csprg/csprg_collector.csp",
-	"inline":["style-src"],
-        "eval":[],
         "whitelist": 
-                [
+                [ {"directive":"report-uri", "value":"/csprg_collector2.php"}
                 ],
         "blacklist":
                 [ {"directive":"script-src", "value":"unsafe-inline"}
