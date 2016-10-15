@@ -1,12 +1,13 @@
 {
 	"self":"$SELF",
-	"inpath":"/usr/share/csprg/csprg_collector.txt",
-        "outpath":"/usr/share/csprg/csprg_collector.csp",
+	"inpath":"/usr/share/csprg/data/csprg_collector.txt",
+        "outpath":"/usr/share/csprg/data/csprg_collector.csp",
         "whitelist": 
                 [ {"directive":"report-uri", "value":"/csprg_collector2.php"}
+                , {"directive":"default-src", "value":"'none'"}
                 ],
         "blacklist":
-                [ {"directive":"script-src", "value":"unsafe-inline"}
-                , {"directive":"script-src", "value":"unsafe-eval"}
+                [ {"directive":"script-src", "value":"'unsafe-inline'"}
+                , {"directive":"script-src", "value":"'unsafe-eval'"}
                 ]
 }

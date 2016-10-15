@@ -1,8 +1,7 @@
 #!/bin/bash
 csprg_stop
-docker cp csprg_collector_1:/var/www/html/csprg_collector.txt /usr/share/csprg/csprg_collector.txt
 csprg_chrome
-read policy < /usr/share/csprg/csprg_collector.csp
+read policy < /usr/share/csprg/data/csprg_collector.csp
 if [[ $policy =~ [a-zA-Z0-9\ \=_\;:\?/\.\'\*\&\%+-]* ]];
 then
 	sed "s=\$POLICY=$policy=g" /usr/share/csprg/proxyprod/src/csp.conf.skel > /usr/share/csprg/proxyprod/src/csp.conf
@@ -11,5 +10,5 @@ then
 else
 	echo "Illegal policy"
 fi
-csprg_start
-echo "The generate policy is:\n$policy"
+echo 'The generate policy is:'
+echo $policy

@@ -5,5 +5,5 @@ if ($json === false) {
     throw new Exception('Bad Request');
 }
 
-$myfile = file_put_contents('csprg_collector.txt', $json.PHP_EOL , FILE_APPEND);
+$myfile = file_put_contents('../data/csprg_collector.txt', $json.PHP_EOL , FILE_APPEND);
 ?>

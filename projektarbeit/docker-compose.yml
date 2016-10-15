@@ -2,6 +2,8 @@ collector:
   build: collector
   ports:
     - 9000:9000
+  volumes:
+    - /usr/share/csprg/data:/var/www/data
 
 proxygen:
   build: proxygen
