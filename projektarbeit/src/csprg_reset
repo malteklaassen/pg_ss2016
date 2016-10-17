@@ -1,4 +1,2 @@
 #!/bin/bash
 rm /usr/share/csprg/data/csprg_collector.txt
-touch /usr/share/csprg/data/csprg_collector.txt
-chmod og+w /usr/share/csprg/data/csprg_collector.txt
