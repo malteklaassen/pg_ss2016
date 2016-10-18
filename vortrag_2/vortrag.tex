@@ -1,0 +1,271 @@
+\documentclass[handout]{beamer}
+%\usepackage[german]{babel}
+%\usepackage[utf8x]{inputenc}
+\usepackage{listings}
+\lstset{
+	frame=single,
+	breaklines=true
+}
+
+\definecolor{verylightgray}{rgb}{0.9,0.9,0.9}
+
+\usetheme{Madrid}
+% Other valid themes
+%   Antibes, Bergen, Berkeley, Berlin, Copenhagen
+%   Darmstadt, Dresden, Frankfurt, Goettingen, Hannover
+%   Ilmenau, JuanLesPins, Luebeck, Madrid, Malmoe
+%   Marburg, Montpellier, PaloAlto, Pittsburgh, Rochester
+%   Singapore, Szeged, Warsaw, boxes, default
+
+%möglich: Antibes, Darmstadt, Frankfurt, Madrid, Montpellier, Singapore
+
+\usecolortheme{dove}
+% Other valid color schemes
+%    albatross, beaver, beetle, crane, dolphin
+%    dove, fly, lily, orchid, rose, seagull
+%    seahorse, whale and the one and only wolverine
+
+%möglich: albatross, beaver, dove, whale
+
+\title[Reportbasierte CSP Erzeugung]{Reportbasierte CSP-Erzeugung}
+\subtitle{Abschlussvortrag Projektgruppe}
+\author[Klaassen]{Malte Klaassen}
+%\institute[Kurzform]{Institut}
+\date{2016-10-26}
+
+\begin{document}
+
+\begin{frame}%1
+\titlepage
+\end{frame}
+
+\begin{frame}%2
+	\frametitle{Inhaltsverzeichnis}
+	\tableofcontents%[pausesections]
+\end{frame}
+
+\section{Ziel des Projekts}
+
+\begin{frame}
+\frametitle{Ziel}
+\begin{itemize}
+\item Tool zur Generierung von Content Security Policies aus Reports
+\item Reports k\"onnen bspw. w\"ahrend Testl\"aufen erstellt werden
+\item Kenntnisse der Seite (ausser bei Tests) sollen nicht n\"otig sein
+\end{itemize}
+\end{frame}
+
+\section{Implementierung}
+
+\begin{frame}
+\frametitle{Implementierung - Module}
+%\begin{itemize}
+%\item 4 Module:
+4 Module:
+\begin{itemize}
+\item Reverse Proxy zur Generierung/Sammlung von Reports
+\item Reverse Proxy zum Test einer Policy
+\item FastCGI Report Collector 
+\item Generator
+%\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Implementierung - Reverse Proxies}
+\framesubtitle{Generierung}
+\begin{itemize}
+\item Basiert auf Docker-Container \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|FROM nginx|}
+\item Virtual Server mit
+\begin{itemize}
+\item \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|fastcgi\_pass 127.0.0.1:9000;|} f\"ur \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|/csprg\_collector.php|}
+\item \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|proxy\_pass \$SERVER;|} f\"ur \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|/|}
+\item \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|add\_header "Content-Security-Policy-Report-Only"|}\newline\colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|"default-src 'none'; report-uri /csprg\_collector.php;"|}
+\end{itemize}
+\item Port Forwarding vom Host auf Port 8080
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Implementierung - Reverse Proxies}
+\framesubtitle{Testing/Production}
+\begin{itemize}
+\item Basiert auf Docker-Container \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|FROM nginx|}
+\item Virtual Server mit
+\begin{itemize}
+\item \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|fastcgi\_pass 127.0.0.1:9000;|} f\"ur \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|/csprg\_collector2.php|}
+\item \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|proxy\_pass \$SERVER;|} f\"ur \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|/|}
+\item \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|add\_header "Content-Security-Policy" \$CSP|}
+\end{itemize}
+\item Port Forwarding vom Host auf Port 80
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Implementierung - Collection}
+\begin{itemize}
+\item Basiert auf Docker-Container \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|FROM php:fpm|}
+\item Erh\"alt Reports von Proxies und gibt diese an Generator weiter
+\item Nutzt Datei in Shared Memory f\"ur IPC
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Reportstruktur - Chrome}
+\lstset{
+	alsoletter=-,
+	morekeywords={blocked-uri,effective-directive},
+	keywordstyle=\color{red},
+	backgroundcolor=\color{verylightgray},
+	basicstyle=\ttfamily\color{black}
+}
+\begin{lstlisting}
+{"csp-report":
+  { "document-uri":"http://localhost:8080/wiki/Main_Page"
+  , "referrer":""
+  , "violated-directive":"default-src 'none'"
+  , "effective-directive":"script-src"
+  , "original-policy":"default-src 'none'; report-uri /csprg_collector.php"
+  , "blocked-uri":"inline"
+  , "status-code":200
+  }
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Implementierung - Generierung}
+\lstset{
+	alsoletter=-,
+	morekeywords={blocked-uri,effective-directive},
+	keywordstyle=\color{red},
+	backgroundcolor=\color{verylightgray},
+	basicstyle=\ttfamily\color{black}
+}
+\begin{lstlisting}
+Input: Reports, Blacklist, Whitelist
+====================================
+Reduce reports to 
+	( report[effective-directive]
+	, report[blocked-uri])
+Check for and insert keywords
+Check for blacklist matches
+Starting with the whitelist fold reports into a Map (effective-directive -> List blocked-uri)
+Flatten the Map into a policy
+Return policy
+\end{lstlisting}
+%\begin{itemize}
+%\item Reduziere Reports auf \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|(report[effective-directive], report[blocked-uri])|}
+%\item
+%\end{itemize}
+\end{frame}
+
+\section{Demo}
+\begin{frame}
+Demo!
+\end{frame}
+
+
+\section{Hindernisse und Probleme}
+
+
+%\subsection{Inline Skripte}
+\begin{frame}[c]
+\frametitle{Inline Skripte}
+\begin{itemize}
+\item \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|script-src 'unsafe-inline'|} sollte unter allen Umst\"anden vermieden werden
+\item Alternativen sind Noncen oder Hashes
+\item Noncen erforden Eingriff in \"ubertragenes HTML
+\item Hashes sind nicht in Reports enthalten
+\end{itemize}
+$\implies$ k\"onnen keine Policies f\"ur Seiten mit Inline-Skripten erstellen\newline
+\end{frame}
+
+%\subsection{Inkompatible Reports}
+%\begin{frame}[c]
+%\frametitle{Inkompatible Reports}
+%\begin{itemize}
+%
+%\end{itemize}
+%\end{frame}
+
+%\subsection{Reportquellen}
+\begin{frame}
+\frametitle{Reportquellen}
+\begin{itemize}
+\item Bei Generierung aus Reports gesendet von normalen Seitenbesuchern: Angreifer kann beliebige Reports generieren
+\item Reports m\"ussten also verifiziert werden \newline$\implies$ braucht exakte Kenntnisse der Seite \newline$\implies$ k\"onnten Policy direkt erstellen
+\item K\"onnen also nur Reports aus vertrauensw\"urdigen Quellen verwenden
+\end{itemize}
+$\rightarrow$ L\"osen dies hier durch eigenen Virtual Server (+Firewall)
+\end{frame}
+
+
+%\subsection{Persistent XSS}
+\begin{frame}[c]
+\frametitle{Persistent XSS}
+\begin{itemize}
+\item Wird Generierung auf von Persistent XSS bereits betroffenen Seiten durchgef\"uhrt so wird dies durch CSP nicht verhindert
+\item Generierung muss auf sauberen Daten erfolgen
+\begin{itemize}
+\item Testserver/-datens\"atze $\implies$ Aufwand/nicht immer verf\"ugbar
+\item Generierung auf Seitensubset $\implies$ erfasst m\"oglicherweise nicht alle genutzten Ressourcen
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+%\subsection{\"Anderungen in 3$^{rd}$ Partey Ressourcen}
+%\begin{frame}[c]
+%\frametitle{\"Anderungen in 3$^{rd}$ Partey Abh\"angigkeiten}
+%\begin{itemize}
+%\item \"Anderungen an eingebunden Fremd-Skripten f\"uhren gegebenenfalls zu zus\"atzlichen ben\"otigten Sourcen $\implies$ neuer Policy
+%\end{itemize}
+%\end{frame}
+
+\begin{frame}
+\frametitle{Weitere Probleme}
+\begin{itemize}
+\item \"Anderungen in 3$^{rd}$ Partey Ressourcen
+\item Reportinkompatiblit\"aten
+\item Tools ohne CSP-Support
+\end{itemize}
+\end{frame}
+
+\section{}
+
+\begin{frame}[c]
+\frametitle{Zusammenfassung}
+\begin{itemize}
+\item Haben Werkzeug zur Reportbasierten Erzeugung von Content Security Policies
+\item F\"ur Grossteil von Websiten grundlegend reportbasierte Generierung jedoch nicht m\"oglich
+\item Komplexere (reportbasierte) Generierungsmethoden h\"aufig anf\"allig
+\end{itemize}
+$\implies$ Keine wirkliche Alternative zur Generierung von Hand/durch direkte Analyse der Seite
+\end{frame}
+
+\begin{frame}
+
+\end{frame}
+
+\begin{thebibliography}{}
+\bibitem[2]{2}
+GitHub \url{https://github.com/malteklaassen/pg_ss2016}
+\bibitem[1]{1}
+Content Security Policy Level 2; W3C Candidate Recommendation \url{https://www.w3.org/TR/CSP2/} (Abgerufen 2016-06-15)
+\end{thebibliography}
+
+
+
+\end{document}
+
+%%% OLD %%%
+
+%\subsection{sub}
+
+%\begin{frame}[c]%24
+%\frametitle{Vielen Dank für Ihre Aufmerksamkeit}
+%\framesubtitle{Untertitel}
+%\begin{itemize}
+%\item Ein Item
+%\end{itemize}
+%\end{frame}
