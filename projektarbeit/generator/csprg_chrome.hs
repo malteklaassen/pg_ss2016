@@ -64,7 +64,7 @@ hGetLines handle =
 
 -- An entry of the black- or whitelist
 data Entry = Entry { directive :: String, value :: String } deriving (Generic, Show, Eq)
-data Conf = Conf { self :: String, inpath :: String, outpath :: String,  whitelist :: [Entry], blacklist :: [Entry]} deriving (Generic, Show)
+data Conf = Conf { self :: [String], inpath :: String, outpath :: String,  whitelist :: [Entry], blacklist :: [Entry]} deriving (Generic, Show)
 
 instance FromJSON Entry
 instance FromJSON Conf
@@ -126,7 +126,7 @@ parseLine conf line =
       Right d@(dname, dvalue) -> case dvalue of
         "inline" -> Right (dname, "'unsafe-inline'")
         "eval" -> Right (dname, "'unsafe-eval'")
-        otherwise -> if isPrefixOf (self conf) dvalue then Right (dname, "'self'") else Right d
+        otherwise -> if any (\s -> isPrefixOf s dvalue) . self $ conf then Right (dname, "'self'") else Right d
     bled = case replaced of -- Blacklistchecks
       Left err -> Left err
       Right d@(dname, dvalue) -> case elem (Entry {directive = dname, value = dvalue}) (blacklist conf) of

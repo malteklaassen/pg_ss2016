@@ -15,7 +15,7 @@ echo "Enter the URL under which the client will find the server (e.g. http://192
 read self
 
 ## Configure the proxies
-sed "s=\$SERVER=$server=g" proxygen/src/nginx.conf.skel > proxygen/src/nginx.conf
+sed "s=\$SERVER=$server=g" proxygen/src/nginx.conf.skel | sed "s=\$SELF=$self=g" > proxygen/src/nginx.conf
 sed "s=\$SERVER=$server=g" proxyprod/src/nginx.conf.skel > proxyprod/src/nginx.conf
 
 read policy < /usr/share/csprg/csprg_collector.csp
@@ -37,7 +37,7 @@ cp src/csprg_start /usr/bin/csprg_start
 cp src/csprg_stop /usr/bin/csprg_stop
 
 ## Generator
-sed "s=\$SELF=$self=g" generator/gen.conf.skel > /etc/csprg/gen.conf
+sed "s=\$SELF=$self=g" generator/gen.conf.skel | sed "s=\$SERVER=$server=g" > /etc/csprg/gen.conf
 cp generator/csprg_generate /usr/bin/csprg_generate
 cp generator/csprg_chrome /usr/bin/csprg_chrome
 

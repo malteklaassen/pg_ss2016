@@ -1,5 +1,4 @@
 #!/bin/bash
-csprg_stop
 csprg_chrome
 read policy < /usr/share/csprg/data/csprg_collector.csp
 if [[ $policy =~ [a-zA-Z0-9\ \=_\;:\?/\.\'\*\&\%+-]* ]];
@@ -10,6 +9,3 @@ then
 else
 	echo "Illegal policy"
 fi
-csprg_start
-echo 'The generate policy is:'
-echo $policy

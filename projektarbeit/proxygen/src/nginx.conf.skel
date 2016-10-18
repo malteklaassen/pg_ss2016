@@ -39,7 +39,7 @@ http {
 
         location / {
             proxy_pass	$SERVER;
-            add_header "Content-Security-Policy-Report-Only" "default-src 'none'; report-uri /csprg_collector.php"; # This policy DOES NOT properly work with Firefox as Firefox only reports the ACTUAL directive that was violated which would always be 'default-src'. If you want to use Firefox instead of Chrome you will need a directive that list every source-type.
+            add_header "Content-Security-Policy-Report-Only" "default-src 'none'; report-uri $SELF/csprg_collector.php"; # This policy DOES NOT properly work with Firefox as Firefox only reports the ACTUAL directive that was violated which would always be 'default-src'. If you want to use Firefox instead of Chrome you will need a directive that list every source-type.
         }
 
         #error_page  404              /404.html;

@@ -1,5 +1,5 @@
 {
-	"self":"$SELF",
+	"self":["$SELF","$SERVER"],
 	"inpath":"/usr/share/csprg/data/csprg_collector.txt",
         "outpath":"/usr/share/csprg/data/csprg_collector.csp",
         "whitelist": 
