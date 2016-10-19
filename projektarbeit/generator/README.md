@@ -37,7 +37,12 @@ Fields:
  2. `self` is a list of addresses under which the client originally reached the server and it will be translated to `'self'` in the actual policy.
  3. `whitelist` and `blacklist` are lists of JSON obejcts of the form `{"directive" : String, "value" : String}`. The directives described that way in `whitelist` will be taken as a starting point for the policy generation. Directives in `blacklist` will never be added to the policy, even if they are necessary for the site.
 
-If a value from `blacklist` would be added a warning will be given.
+If a value from `blacklist` would be added a warning will be given. The blacklist checks will be applied AFTER the replacements are made.
+
+### Blacklist
+The blacklist should mainly be used to prevent entries like `script-src 'unsafe-inline' 'unsafe-eval'` and `object-src 'unsafe-inline'` (as recommended in CSP Level 2 §7). No in depth checking for the equality of two elements is done.
+
+It can also be used to blacklist any item of type `directiveName` by using `{"directiveName":"*"}`.
 
 ## Generation
 Generation is done by simply calling `sudo csprg_generate`. This will write a policy to the specified output file and also apply this policy to `proxyprod`.

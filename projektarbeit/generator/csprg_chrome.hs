@@ -62,13 +62,15 @@ hGetLines handle =
 --CONFIG SECTION--
 -------------------------------------------------------------------------
 
--- An entry of the black- or whitelist
+-- Data type for Entries in Black- or Whitelist
 data Entry = Entry { directive :: String, value :: String } deriving (Generic, Show, Eq)
+-- Data type for the configuration
 data Conf = Conf { self :: [String], inpath :: String, outpath :: String,  whitelist :: [Entry], blacklist :: [Entry]} deriving (Generic, Show)
 
 instance FromJSON Entry
 instance FromJSON Conf
 
+-- Reading in the configuration file from the give location & parsing the JSON. The parser is automatically generated through the Conf data type and the DeriveGenerics Language Extension
 readConf :: String -> IO (Either String Conf)
 readConf cpath =
   (eitherDecode <$> BSL.readFile cpath)
@@ -87,8 +89,11 @@ readConf cpath =
 	5.	Return ([Errormsg], Policy)
 -}
 
+
+-- Data types for parsing the reports. Unluckily we need multiple levels here as the actual reports are wrapped in an JSON object that only has a single field.
 data OuterReport = OuterReport
   { cspReport :: Report } deriving (Eq, Show)
+-- Generic derivation doesnt help us here as - is a reserved character in Haskell so we can't give our fields the correct names. Instead we need to defines the FromJSON instace by hand (for those fields).
 instance FromJSON OuterReport where
   parseJSON (Object x) = OuterReport <$> x.: "csp-report"
   parseJSON _ = fail "Exptected an Object"
@@ -101,13 +106,18 @@ instance FromJSON Report where
   parseJSON (Object x) = Report <$> x .: "blocked-uri" <*> x.: "effective-directive"
   parseJSON _ = fail "Expected an Object"
 
+-- Types for easier reading of the Function types
 type Errormsg = String
 type Policy = String
 type Line = String
+
+
 linesToPolicy :: Conf -> [Line] -> ([Errormsg], Policy)
 linesToPolicy conf lines = 
   let
+    -- Preprocessing the whitelist into a Map which will later be used by buildPolicy function
     wl = foldr (\entry wl -> insertWith ((++)) (directive entry) [(value entry)] wl) DMS.empty (whitelist conf)
+    -- Preprocessing the lines
     mappedLines = map (parseLine conf) lines
   in
     (lefts mappedLines, mapToPolicy . buildPolicy wl . rights $ mappedLines)
@@ -121,6 +131,7 @@ parseLine conf line =
     reduced = case (eitherDecode :: C.ByteString -> Either String OuterReport) (C.pack line) of
       Left e -> Left e
       Right or -> let r = cspReport or in Right (effectiveDirective r, blockedUri r)
+    -- Replace with keywords
     replaced = case reduced of -- Replaced occurences of self, eval and inline
       Left _ -> Left ("Could not parse line: " ++ line)
       Right d@(dname, dvalue) -> case dvalue of
@@ -129,7 +140,7 @@ parseLine conf line =
         otherwise -> if any (\s -> isPrefixOf s dvalue) . self $ conf then Right (dname, "'self'") else Right d
     bled = case replaced of -- Blacklistchecks
       Left err -> Left err
-      Right d@(dname, dvalue) -> case elem (Entry {directive = dname, value = dvalue}) (blacklist conf) of
+      Right d@(dname, dvalue) -> case elem (Entry {directive = dname, value = dvalue}) (blacklist conf) || elem (Entry {directive = dname, value = "*"}) (blacklist conf)  of
         True -> Left ("Line matches blacklist entry: " ++ line)
         False -> Right d
   in
