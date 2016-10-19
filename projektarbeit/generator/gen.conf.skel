@@ -9,5 +9,6 @@
         "blacklist":
                 [ {"directive":"script-src", "value":"'unsafe-inline'"}
                 , {"directive":"script-src", "value":"'unsafe-eval'"}
+		, {"directive":"object-src", "value":"'unsafe-inline'"}
                 ]
 }
