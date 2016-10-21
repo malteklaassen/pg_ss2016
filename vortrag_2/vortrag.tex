@@ -47,11 +47,22 @@
 \section{Ziel des Projekts}
 
 \begin{frame}
+\frametitle{Content Security Policy}
+\begin{itemize}
+\item HTTP Header \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|Content-Security-Policy|} und \colorbox{verylightgray}{\lstinline[basicstyle=\ttfamily\color{black}]|Content-Security-Policy-Report-Only|}
+\item Whitelist an Ressourcen, die ein Browser laden bzw. ausf\"uhren darf
+\item Verhinderung von XSS
+\item Browser generiert Reports f\"ur Verst\"osse
+\
+\end{itemize}
+\end{frame}
+
+\begin{frame}
 \frametitle{Ziel}
 \begin{itemize}
 \item Tool zur Generierung von Content Security Policies aus Reports
 \item Reports k\"onnen bspw. w\"ahrend Testl\"aufen erstellt werden
-\item Kenntnisse der Seite (ausser bei Tests) sollen nicht n\"otig sein
+\item Unnabh\"angig vom genutzten Webserver etc.
 \end{itemize}
 \end{frame}
 
@@ -197,7 +208,7 @@ $\implies$ k\"onnen keine Policies f\"ur Seiten mit Inline-Skripten erstellen\ne
 \item Reports m\"ussten also verifiziert werden \newline$\implies$ braucht exakte Kenntnisse der Seite \newline$\implies$ k\"onnten Policy direkt erstellen
 \item K\"onnen also nur Reports aus vertrauensw\"urdigen Quellen verwenden
 \end{itemize}
-$\rightarrow$ L\"osen dies hier durch eigenen Virtual Server (+Firewall)
+$\rightarrow$ L\"osung hier: Dedizierter Server f\"ur Generierung
 \end{frame}
 
 
