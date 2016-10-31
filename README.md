@@ -3,6 +3,9 @@ Repository for [Project Group: Sicherheit in verteilten Systemen: Secure Messagi
 
 vortrag_1 contains the introductory talk.
 
-projektarbeit contains the actual project
+vortrag_2 contains the final presentation.
 
-basicproxy is a (failed) attempt of implementing our own reverse proxy
+projektarbeit contains the actual project.
+
+Licenses can be found in the specific subfolders.
+
